@@ -6,13 +6,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.http.*;
 import org.springframework.stereotype.Component;
-import org.springframework.web.client.ResourceAccessException;
-import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Scanner;
 
 @Component
 public class StartupRunner implements CommandLineRunner {
@@ -32,43 +29,49 @@ public class StartupRunner implements CommandLineRunner {
         System.out.println("🚀 API TEST STARTED");
         System.out.println("=================================\n");
         
-        // Try to generate webhook
+        // Generate webhook
         boolean success = generateWebhook();
         
         if (success) {
-            // Get registration number from user
-            Scanner scanner = new Scanner(System.in);
-            System.out.print("\nEnter your registration number (e.g., REG12347): ");
-            String regNo = scanner.nextLine().trim();
+            // Hardcoded values - no input needed!
+            String regNo = "REG12347";
+            String sqlQuery = "SELECT \n" +
+                "    d.DEPARTMENT_NAME,\n" +
+                "    MAX(p.AMOUNT) as SALARY,\n" +
+                "    CONCAT(e.FIRST_NAME, ' ', e.LAST_NAME) as EMPLOYEE_NAME,\n" +
+                "    EXTRACT(YEAR FROM AGE(CURRENT_DATE, e.DOB)) as AGE\n" +
+                "FROM DEPARTMENT d\n" +
+                "JOIN EMPLOYEE e ON d.DEPARTMENT_ID = e.DEPARTMENT\n" +
+                "JOIN PAYMENTS p ON e.EMP_ID = p.EMP_ID\n" +
+                "WHERE EXTRACT(DAY FROM p.PAYMENT_TIME) != 1\n" +
+                "GROUP BY d.DEPARTMENT_ID, d.DEPARTMENT_NAME, e.EMP_ID, e.FIRST_NAME, e.LAST_NAME, e.DOB\n" +
+                "HAVING p.AMOUNT = (\n" +
+                "    SELECT MAX(p2.AMOUNT)\n" +
+                "    FROM PAYMENTS p2\n" +
+                "    JOIN EMPLOYEE e2 ON p2.EMP_ID = e2.EMP_ID\n" +
+                "    WHERE e2.DEPARTMENT = e.DEPARTMENT\n" +
+                "    AND EXTRACT(DAY FROM p2.PAYMENT_TIME) != 1\n" +
+                ")\n" +
+                "ORDER BY d.DEPARTMENT_NAME;";
             
             String lastTwoDigits = regNo.substring(regNo.length() - 2);
             int lastTwoNum = Integer.parseInt(lastTwoDigits);
             
-            System.out.println("\n📋 Your Registration Number: " + regNo);
+            System.out.println("\n📋 Registration Number: " + regNo);
             System.out.println("🔢 Last two digits: " + lastTwoDigits);
             
-            String questionLink;
             if (lastTwoNum % 2 != 0) {
-                questionLink = "https://drive.google.com/file/d/1LAPx2to9zmN5NDY0tkMrJRnVXf_1guNr/view";
-                System.out.println("📌 You need to solve: QUESTION 1 (Odd number)");
+                System.out.println("📌 Solving: QUESTION 1 (Odd number)");
             } else {
-                questionLink = "https://drive.google.com/file/d/1b0p5C-6fUrUQglJVaWWAAB3P12IfoBCH/view";
-                System.out.println("📌 You need to solve: QUESTION 2 (Even number)");
+                System.out.println("📌 Solving: QUESTION 2 (Even number)");
             }
             
-            System.out.println("🔗 Google Drive Link: " + questionLink);
-            
-            // Get SQL solution from user
-            System.out.print("\n📝 Paste your SQL query: ");
-            String sqlQuery = scanner.nextLine();
+            System.out.println("\n📝 SQL Query being submitted:");
+            System.out.println("----------------------------------------");
+            System.out.println(sqlQuery);
+            System.out.println("----------------------------------------");
             
             submitSolution(sqlQuery);
-            scanner.close();
-        } else {
-            System.out.println("\n❌ Failed to generate webhook. Please check:");
-            System.out.println("1. Your internet connection");
-            System.out.println("2. If the API endpoint is correct");
-            System.out.println("3. Try running the application again");
         }
     }
     
@@ -76,7 +79,7 @@ public class StartupRunner implements CommandLineRunner {
         try {
             String url = "https://bfhldevapigw.healthrx.co.in/hiring/generateWebhook/JAVA";
             
-            // REPLACE THESE WITH YOUR ACTUAL DETAILS
+            // REPLACE WITH YOUR ACTUAL DETAILS
             Map<String, String> requestBody = new HashMap<>();
             requestBody.put("name", "John Doe");      // Your full name
             requestBody.put("regNo", "REG12347");     // Your registration number
@@ -102,16 +105,8 @@ public class StartupRunner implements CommandLineRunner {
             
             return true;
             
-        } catch (ResourceAccessException e) {
-            System.err.println("❌ Network error: Cannot connect to the API server");
-            System.err.println("   Please check your internet connection");
-            return false;
-        } catch (RestClientException e) {
-            System.err.println("❌ API error: " + e.getMessage());
-            return false;
         } catch (Exception e) {
-            System.err.println("❌ Unexpected error: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("❌ Error generating webhook: " + e.getMessage());
             return false;
         }
     }
